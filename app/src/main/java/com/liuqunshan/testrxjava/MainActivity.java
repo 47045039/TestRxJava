@@ -6,9 +6,9 @@ import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import java.util.concurrent.TimeUnit;
 
@@ -22,9 +22,7 @@ import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Func0;
 import rx.functions.Func1;
-import rx.observables.AsyncOnSubscribe;
-import rx.observers.Subscribers;
-import rx.plugins.RxJavaHooks;
+import rx.functions.Func2;
 import rx.schedulers.Schedulers;
 
 public class MainActivity extends AppCompatActivity {
@@ -32,6 +30,54 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
 
     private Subscription subscription;
+
+    Observer<Object> observer = new Observer<Object>() {
+
+        @Override
+        public void onCompleted() {
+            Log.i(TAG, "observer @@@@ onCompleted: " + Thread.currentThread());
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            Log.i(TAG, "observer @@@@ onError: " + throwable + " " + Thread.currentThread());
+        }
+
+        @Override
+        public void onNext(Object s) {
+            Log.i(TAG, "observer @@@@ onNext: " + s + " " + Thread.currentThread());
+        }
+    };
+
+    Subscriber<Object> subscriber = new Subscriber<Object>() {
+
+        @Override
+        public void setProducer(Producer p) {
+            super.setProducer(p);
+            Log.i(TAG, "subscriber @@@@ setProducer: " + p + " " + Thread.currentThread());
+        }
+
+        @Override
+        public void onStart() {
+            super.onStart();
+            Log.i(TAG, "subscriber @@@@ onStart: " + Thread.currentThread());
+        }
+
+        @Override
+        public void onCompleted() {
+            Log.i(TAG, "subscriber @@@@ onCompleted: " + Thread.currentThread());
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            Log.i(TAG, "subscriber @@@@ onError: " + throwable + " " + Thread.currentThread());
+        }
+
+        @Override
+        public void onNext(Object s) {
+            Log.i(TAG, "subscriber @@@@ onNext: " + s + " " + Thread.currentThread());
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,7 +101,8 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
 
 //        testBase();
-        testOperatorAndScheduler();
+//        testOperatorAndScheduler();
+        testOtherOperator();
     }
 
     @Override
@@ -69,55 +116,6 @@ public class MainActivity extends AppCompatActivity {
 
     // 测试一些基本用法
     private void testBase() {
-        Observer<Object> observer = new Observer<Object>() {
-
-            @Override
-            public void onCompleted() {
-                Log.i(TAG, "observer @@@@ onCompleted: " + Thread.currentThread());
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                Log.i(TAG, "observer @@@@ onError: " + throwable + " " + Thread.currentThread());
-            }
-
-            @Override
-            public void onNext(Object s) {
-                Log.i(TAG, "observer @@@@ onNext: " + s + " " + Thread.currentThread());
-            }
-        };
-
-        Subscriber<String> subscriber = new Subscriber<String>() {
-
-            @Override
-            public void onStart() {
-                super.onStart();
-                Log.i(TAG, "subscriber @@@@ onStart: " + Thread.currentThread());
-            }
-
-            @Override
-            public void setProducer(Producer p) {
-                super.setProducer(p);
-                Log.i(TAG, "subscriber @@@@ setProducer: " + p + " " + Thread.currentThread());
-            }
-
-            @Override
-            public void onCompleted() {
-                Log.i(TAG, "subscriber @@@@ onCompleted: " + Thread.currentThread());
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                Log.i(TAG, "subscriber @@@@ onError: " + throwable + " " + Thread.currentThread());
-            }
-
-            @Override
-            public void onNext(String s) {
-                Log.i(TAG, "subscriber @@@@ onNext: " + s + " " + Thread.currentThread());
-            }
-        };
-
-
         // 同一个Observer可以subscribe多次，每次都将调用其onNext()和onCompleted()回调
         Observable.from(new String[]{"a1", "b1", "c1"}).subscribe(observer);
         Observable.just("a2", "b2", "c2").subscribe(observer);
@@ -136,36 +134,6 @@ public class MainActivity extends AppCompatActivity {
 
     // 测试各种各样的Operator和scheduler线程切换
     private void testOperatorAndScheduler() {
-        Subscriber<Object> subscriber = new Subscriber<Object>() {
-
-            @Override
-            public void setProducer(Producer p) {
-                super.setProducer(p);
-                Log.i(TAG, "subscriber @@@@ setProducer: " + p + " " + Thread.currentThread());
-            }
-
-            @Override
-            public void onStart() {
-                super.onStart();
-                Log.i(TAG, "subscriber @@@@ onStart: " + Thread.currentThread());
-            }
-
-            @Override
-            public void onCompleted() {
-                Log.i(TAG, "subscriber @@@@ onCompleted: " + Thread.currentThread());
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                Log.i(TAG, "subscriber @@@@ onError: " + throwable + " " + Thread.currentThread());
-            }
-
-            @Override
-            public void onNext(Object s) {
-                Log.i(TAG, "subscriber @@@@ onNext: " + s + " " + Thread.currentThread());
-            }
-        };
-
         // FIXME: subscribeOn()可以调用多次，会影响到之前的lift operation call线程
         // FIXME: observeOn()可以调用多次，会影响到之前的lift operation callback线程，进而影响到之后的lift operation call线程
         // FIXME: 一个operator上边用subscribeOn()指定了call线程，下边用observeOn()指定了callback线程时，以上边的subscribeOn()线程优先
@@ -234,7 +202,51 @@ public class MainActivity extends AppCompatActivity {
                 })
 
                 // 达成订阅
-                .subscribe(subscriber);
+                .subscribe(observer);
+    }
+
+    // 测试各种各样的Operator
+    private void testOtherOperator() {
+        // 手动控制subscriber的回调
+        Observable.create(new Observable.OnSubscribe<String>() {
+            @Override
+            public void call(Subscriber<? super String> subscriber) {
+                Log.w(TAG, "@@@@@@@@ create OnSubscribe: " + subscriber + " " + Thread.currentThread());
+                subscriber.onNext("xxx");
+                subscriber.onNext("yyy");
+                subscriber.onNext("zzz");
+                subscriber.onCompleted();
+            }
+        }).subscribe(subscriber);
+
+        // 将多个Observable的回调结果统一处理
+        // 任意一个Observable complete时，合并的Observable将complete
+        // observer.onNext()回调 = 多个Observable中最少的onNext回调次数，回调结果将合并体现在call回调中
+        Observable.zip(
+                Observable.just(11, 22).delay(2, TimeUnit.SECONDS),
+                Observable.just("_test_string_1", "_test_string_2", "_test_string_3"),
+                new Func2<Integer, String, Object>() {
+            @Override
+            public Object call(Integer integer, String s) {
+                Log.w(TAG, "@@@@@@@@ zip observable call: " + integer + " " + s + " " + Thread.currentThread());
+                return integer + s;
+            }
+        }).subscribe(observer);
+
+        // 延时创建Observable，避免了同步调用
+        // Observable.just()代码在subscribe时才会执行
+        Observable.defer(new Func0<Observable<String>>() {
+            @Override
+            public Observable<String> call() {
+                return Observable.just("12345");
+            }
+        }).subscribe(observer);
+
+        // 只发送一个Observable的数据集，多个Observable中只有最先的那个可以发送数据
+        Observable.amb(
+                Observable.just(11, 22).delay(2, TimeUnit.SECONDS),
+                Observable.just("_test_string_1", "_test_string_2", "_test_string_3")
+        ).subscribe(observer);
     }
 
     @Override
