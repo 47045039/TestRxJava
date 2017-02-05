@@ -10,6 +10,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
+import com.trello.rxlifecycle.RxLifecycle;
+import com.trello.rxlifecycle.android.ActivityEvent;
+import com.trello.rxlifecycle.android.RxLifecycleAndroid;
+
 import java.util.concurrent.TimeUnit;
 
 import rx.Observable;
@@ -102,7 +106,9 @@ public class MainActivity extends AppCompatActivity {
 
 //        testBase();
 //        testOperatorAndScheduler();
-        testOtherOperator();
+//        testOtherOperator();
+
+        testExtra();
     }
 
     @Override
@@ -247,6 +253,35 @@ public class MainActivity extends AppCompatActivity {
                 Observable.just(11, 22).delay(2, TimeUnit.SECONDS),
                 Observable.just("_test_string_1", "_test_string_2", "_test_string_3")
         ).subscribe(observer);
+    }
+
+    private void testExtra() {
+        Observable.just("_test_extra_").compose(RxLifecycleAndroid.bindActivity(Observable.defer(new Func0<Observable<ActivityEvent>>() {
+            @Override
+            public Observable<ActivityEvent> call() {
+                return Observable.from(new ActivityEvent[]{
+                        ActivityEvent.CREATE, ActivityEvent.START,
+                        ActivityEvent.RESUME, ActivityEvent.PAUSE,
+                        ActivityEvent.STOP, ActivityEvent.DESTROY
+                });
+            }
+        }))).subscribe(new Action1<Object>() {
+
+            @Override
+            public void call(Object o) {
+                Log.w(TAG, "@@@@@@@@ onNext call: " + o + " " + Thread.currentThread());
+            }
+        }, new Action1<Throwable>() {
+            @Override
+            public void call(Throwable throwable) {
+                Log.w(TAG, "@@@@@@@@ onError call: " + throwable + " " + Thread.currentThread());
+            }
+        }, new Action0() {
+            @Override
+            public void call() {
+                Log.w(TAG, "@@@@@@@@ onComplete call: " + Thread.currentThread());
+            }
+        });
     }
 
     @Override
